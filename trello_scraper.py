@@ -124,12 +124,31 @@ class TrelloScraper:
             print(f"Failed to get sprint room user cards: {str(e)}")
             raise
         
-    def parse_sprint_room_user_cards(self):
-        """Parse the sprint room user cards."""
+    def export_view_json(self):
+        """Export the view to a JSON file."""
         try:
-            # get all cards
-            cards = self.driver.find_elements(By.CLASS_NAME, "PqTwU_wwUxQy6s")
-            print(cards)
+            time.sleep(1)
+            # open menu 
+            menu_button = self.wait.until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "nch-icon"))
+            )
+            menu_button.click()
+            time.sleep(1)
+            
+            # click on export/print/share menu <div class="S1YMKJFPn9WNGk">Print, export, and share</div>
+            export_button = self.wait.until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "S1YMKJFPn9WNGk"))
+            )
+            export_button.click()
+            time.sleep(1)
+            
+            # click on export <span class="BmRHtH7FIX0jcL">Export as JSON</span>
+            export_as_json_button = self.wait.until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "BmRHtH7FIX0jcL"))
+            )
+            export_as_json_button.click()
+            time.sleep(1)
+            
         except Exception as e:
             print(f"Failed to parse sprint room user cards: {str(e)}")
             raise
@@ -146,7 +165,7 @@ def main(member):
     try:
         scraper.navigate_to_sprint_room()
         scraper.get_sprint_room_user_cards()
-        scraper.parse_sprint_room_user_cards()
+        scraper.export_view_json()
     finally:
         scraper.driver.quit()
 
