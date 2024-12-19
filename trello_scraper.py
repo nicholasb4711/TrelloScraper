@@ -13,16 +13,23 @@ class TrelloScraper:
     def __init__(self):
         load_dotenv()
         
-        # Configure Chrome options
+        # Configure Chrome options for faster startup
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--start-maximized')
         chrome_options.add_argument('--disable-gpu')
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-extensions')  # Disable extensions for faster loading
+        chrome_options.add_argument('--disable-browser-side-navigation')  # Faster navigation
+        chrome_options.add_argument('--dns-prefetch-disable')  # Disable DNS prefetching
+        chrome_options.add_argument('--disable-infobars')  # Disable infobars
+        chrome_options.add_argument('--disable-notifications')  # Disable notifications
+        chrome_options.add_argument('--disable-popup-blocking')  # Disable popup blocking
+        chrome_options.page_load_strategy = 'eager'  # Don't wait for all resources to load
         
         # Initialize the Chrome driver with options
         self.driver = webdriver.Chrome(options=chrome_options)
-        self.wait = WebDriverWait(self.driver, 20)  # Increased wait time to 20 seconds
+        self.wait = WebDriverWait(self.driver, 10)  # Reduced wait time from 20 to 10 seconds
         
         try:
             self.login()
@@ -34,7 +41,7 @@ class TrelloScraper:
         """Login to Trello."""
         try:
             self.driver.get("https://trello.com/login")
-            time.sleep(3)  # Increased initial wait time
+            time.sleep(1)  # Increased initial wait time
             
             # Login with Atlassian account
             email_input = self.wait.until(
@@ -48,6 +55,7 @@ class TrelloScraper:
                 EC.element_to_be_clickable((By.ID, "login-submit"))
             )
             continue_button.click()
+            time.sleep(1)
             
             # Wait for password field and submit
             password_input = self.wait.until(
@@ -61,81 +69,28 @@ class TrelloScraper:
             )
             login_button.click()
             
-            # Wait for login to complete and verify we're logged in
+            time.sleep(2)
+            
+            # # check if 2-step selection is required
+            # if self.driver.find_element(By.ID, "password-container"):
+            #     # click on the 2-step selection button
+            #     self.driver.find_element(By.ID, "password-container").click()
+            #     time.sleep(1)
+            
+            # verify we're logged in
             self.wait.until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "[data-test-id='header-member-menu-button']"))
+                EC.presence_of_element_located((By.CLASS_NAME, "all-boards"))
             )
             
         except Exception as e:
             print(f"Login failed: {str(e)}")
             self.driver.save_screenshot("login_error.png")
             raise
-
-    def get_member_boards(self, member_id):
-        """Get all boards for a member."""
-        self.driver.get(f"https://trello.com/{member_id}/boards")
-        boards = self.wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".board-tile")))
-        return [board.get_attribute('href') for board in boards]
-
-    def get_card_details(self, card_element):
-        """Extract relevant details from a card."""
-        try:
-            # Click to open card
-            card_element.click()
-            time.sleep(1)
-            
-            title = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".card-detail-title"))).text
-            description = self.driver.find_element(By.CSS_SELECTOR, ".description-content").text
-            labels = [label.text for label in self.driver.find_elements(By.CSS_SELECTOR, ".card-label")]
-            
-            # Close card
-            self.driver.find_element(By.CSS_SELECTOR, ".dialog-close-button").click()
-            time.sleep(0.5)
-            
-            return {
-                'title': title,
-                'description': description,
-                'labels': labels,
-                'board_name': self.driver.title
-            }
-        except Exception as e:
-            print(f"Error processing card: {e}")
-            return None
-
-    def scrape_member_cards(self, member_id):
-        """Scrape all cards for a member."""
-        boards = self.get_member_boards(member_id)
-        all_cards = []
-
-        for board_url in boards:
-            self.driver.get(board_url)
-            time.sleep(2)
-            
-            cards = self.wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".list-card")))
-            for card in cards:
-                card_details = self.get_card_details(card)
-                if card_details:
-                    all_cards.append(card_details)
-
-        return all_cards
-
-    def save_to_csv(self, cards, filename):
-        """Save card details to CSV."""
-        df = pd.DataFrame(cards)
-        df.to_csv(filename, index=False)
-        return filename
-
-    def generate_summary(self, cards):
-        """Generate a resume-friendly summary of activities."""
-        df = pd.DataFrame(cards)
         
-        summary = {
-            'total_cards': len(df),
-            'boards_contributed': df['board_name'].nunique(),
-            'labels_summary': df['labels'].explode().value_counts().to_dict(),
-        }
-        
-        return summary
+    def navigate_to_sprint_room(self):
+        """Navigate to the member's boards page."""
+        self.driver.get(f"https://trello.com/b/AKnpNx3h/sprint-room")
+        time.sleep(2)
 
     def __del__(self):
         """Clean up browser instance."""
@@ -147,21 +102,8 @@ def main(member):
     scraper = TrelloScraper()
     
     try:
-        # Scrape cards
-        print(f"Scraping cards for member: {member}")
-        cards = scraper.scrape_member_cards(member)
-        
-        # Save to CSV
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"trello_cards_{member}_{timestamp}.csv"
-        scraper.save_to_csv(cards, filename)
-        print(f"Cards saved to: {filename}")
-        
-        # Generate summary
-        summary = scraper.generate_summary(cards)
-        print("\nActivity Summary:")
-        for key, value in summary.items():
-            print(f"{key}: {value}")
+        scraper.navigate_to_sprint_room()
+        time.sleep(3)
     finally:
         scraper.driver.quit()
 
