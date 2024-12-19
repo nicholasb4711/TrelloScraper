@@ -1,14 +1,10 @@
 # Trello Scraper
 
 A Python-based tool to scrape Trello boards and analyze card data. This tool allows you to:
-- login to trello
-- get all boards for a member
-- get all cards for a specific member of a board
-- get all checklists for a card
-- get all comments for a card
-- get all attachments for a card
-- download the data to a csv file
-- analyze the data and generate a resume-friendly activity summary
+- Login to Trello
+- Get all cards for a specific member of a board
+- Export card data to a readable format
+- Generate resume-friendly bullet points using GPT (optional)
 
 ## Requirements
 
@@ -16,6 +12,7 @@ A Python-based tool to scrape Trello boards and analyze card data. This tool all
 - Chrome browser
 - ChromeDriver (automatically managed by webdriver_manager)
 - Trello account credentials
+- OpenAI API key (optional, for resume generation)
 
 ## Installation
 
@@ -44,26 +41,36 @@ cd trello-scraper
 pip install -r requirements.txt
 ```
 
-4. Create a .env file with the following variables:
+4. Create a .env file with your credentials:
 
 ```
 TRELLO_EMAIL=<your_trello_email>
 TRELLO_PASSWORD=<your_trello_password>
+TRELLO_USERNAME=<your_trello_username>
+OPENAI_API_KEY=<your_openai_api_key>  # Optional, for resume generation
 ```
 
-5. Run the script:
+## Usage
 
+### Basic Usage (Card List Only)
 ```bash
 python trello_scraper.py --member <trello_username>
 ```
 
-Note: Remember to activate the virtual environment every time you work on the project:
+### Generate Resume Points
 ```bash
-# On Windows
-.\venv\Scripts\activate
-
-# On macOS/Linux
-source venv/bin/activate
+python trello_scraper.py --member <trello_username> --generate-resume
 ```
+
+## Output Files
+
+- `card_list.txt`: Detailed list of all cards with descriptions and checklists
+- `resume_points.txt`: AI-generated resume bullet points (if --generate-resume is used)
+
+## Notes
+
+- The script can run in both headless and visible browser modes
+- Resume generation requires an OpenAI API key and sufficient API quota
+- All sensitive data should be stored in the .env file
 
 
