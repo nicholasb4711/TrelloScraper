@@ -12,28 +12,64 @@ import time
 class TrelloScraper:
     def __init__(self):
         load_dotenv()
-        self.driver = webdriver.Chrome()  # Make sure you have ChromeDriver installed
-        self.wait = WebDriverWait(self.driver, 10)
-        self.login()
+        
+        # Configure Chrome options
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument('--start-maximized')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        
+        # Initialize the Chrome driver with options
+        self.driver = webdriver.Chrome(options=chrome_options)
+        self.wait = WebDriverWait(self.driver, 20)  # Increased wait time to 20 seconds
+        
+        try:
+            self.login()
+        except Exception as e:
+            self.driver.quit()
+            raise e
 
     def login(self):
         """Login to Trello."""
-        self.driver.get("https://trello.com/login")
-        
-        # Login with Atlassian account
-        email_input = self.wait.until(EC.presence_of_element_located((By.ID, "user")))
-        email_input.send_keys(os.getenv('TRELLO_EMAIL'))
-        
-        login_button = self.wait.until(EC.element_to_be_clickable((By.ID, "login")))
-        login_button.click()
-        
-        # Wait for password field and submit
-        password_input = self.wait.until(EC.presence_of_element_located((By.ID, "password")))
-        password_input.send_keys(os.getenv('TRELLO_PASSWORD'))
-        password_input.submit()
-        
-        # Wait for login to complete
-        time.sleep(5)
+        try:
+            self.driver.get("https://trello.com/login")
+            time.sleep(3)  # Increased initial wait time
+            
+            # Login with Atlassian account
+            email_input = self.wait.until(
+                EC.presence_of_element_located((By.ID, "username"))
+            )
+            email_input.send_keys(os.getenv('TRELLO_EMAIL'))
+            time.sleep(1)
+            
+            # Click the Atlassian continue button
+            continue_button = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "login-submit"))
+            )
+            continue_button.click()
+            
+            # Wait for password field and submit
+            password_input = self.wait.until(
+                EC.presence_of_element_located((By.ID, "password"))
+            )
+            password_input.send_keys(os.getenv('TRELLO_PASSWORD'))
+            
+            # Click the login button
+            login_button = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "login-submit"))
+            )
+            login_button.click()
+            
+            # Wait for login to complete and verify we're logged in
+            self.wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "[data-test-id='header-member-menu-button']"))
+            )
+            
+        except Exception as e:
+            print(f"Login failed: {str(e)}")
+            self.driver.save_screenshot("login_error.png")
+            raise
 
     def get_member_boards(self, member_id):
         """Get all boards for a member."""
