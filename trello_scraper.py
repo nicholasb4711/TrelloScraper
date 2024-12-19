@@ -130,22 +130,26 @@ class TrelloScraper:
             time.sleep(1)
             # open menu 
             menu_button = self.wait.until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "nch-icon"))
+                EC.element_to_be_clickable((By.CLASS_NAME, "GDunJzzgFqQY_3"))
             )
             menu_button.click()
             time.sleep(1)
             
-            # click on export/print/share menu <div class="S1YMKJFPn9WNGk">Print, export, and share</div>
+            # click on export/print/share menu 
             export_button = self.wait.until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "S1YMKJFPn9WNGk"))
+                EC.element_to_be_clickable((By.XPATH, "//button[.//div[text()='Print, export, and share']]"))
             )
             export_button.click()
             time.sleep(1)
             
-            # click on export <span class="BmRHtH7FIX0jcL">Export as JSON</span>
+            # click on export JSON using the link text
             export_as_json_button = self.wait.until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "BmRHtH7FIX0jcL"))
+                EC.element_to_be_clickable((By.XPATH, "//a[.//span[text()='Export as JSON']]"))
             )
+            # Alternative using href attribute:
+            # export_as_json_button = self.wait.until(
+            #     EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href$='.json'][download]"))
+            # )
             export_as_json_button.click()
             time.sleep(1)
             
