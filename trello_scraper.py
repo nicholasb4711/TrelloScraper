@@ -1,7 +1,9 @@
 import os
 from datetime import datetime
+from xml.etree.ElementTree import Element
 import pandas as pd
 from selenium import webdriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -99,27 +101,16 @@ class TrelloScraper:
             print(f"Failed to navigate to sprint room: {str(e)}")
             raise
         
-    def get_sprint_room_user_cards(self):
+    def get_sprint_room_user_cards(self, member):
         """Get all cards for the user in the sprint room."""
         try:
-            # Press filter button <div class="PqTwU_wwUxQy6s">Filters</div>
-            filter_button = self.wait.until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "PqTwU_wwUxQy6s"))
-            )
-            filter_button.click()
-            time.sleep(.05)
-            # Press cards assigned to me <div class="WiVSCg76W3ENQE" title="Cards assigned to me">Cards assigned to me</div>
-            cards_assigned_to_me_button = self.wait.until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "WiVSCg76W3ENQE"))
-            )
-            cards_assigned_to_me_button.click()
-            time.sleep(1)
-             # Press filter button <div class="PqTwU_wwUxQy6s">Filters</div>
-            filter_button = self.wait.until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "PqTwU_wwUxQy6s"))
-            )
-            filter_button.click()
+            # Wait for the page to be fully loaded
+            time.sleep(3)  # Increased wait time for page stability
+            
+            # set up filter for cards assigned to user: https://trello.com/b/AKnpNx3h/sprint-room?filter=member:nicholasbyrne13
+            self.driver.get(f"https://trello.com/b/AKnpNx3h/sprint-room?filter=member:{member}")
             time.sleep(3)
+            
         except Exception as e:
             print(f"Failed to get sprint room user cards: {str(e)}")
             raise
@@ -127,34 +118,64 @@ class TrelloScraper:
     def export_view_json(self):
         """Export the view to a JSON file."""
         try:
-            time.sleep(1)
-            # open menu 
-            menu_button = self.wait.until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "GDunJzzgFqQY_3"))
-            )
-            menu_button.click()
-            time.sleep(1)
-            
-            # click on export/print/share menu 
+            # see if menu button is open
+            # menu_title = <h3 class="MK0fS4D9AGgvuD">Menu</h3>
+            menu_title = self.driver.find_element(By.CLASS_NAME, "MK0fS4D9AGgvuD")
+            if menu_title.is_displayed() == False:
+                # open menu (the three dots)
+                time.sleep(1)
+                menu_button = self.driver.find_element(By.CLASS_NAME, "GDunJzzgFqQY_3")
+                menu_button1 = self.wait.until(
+                    EC.element_to_be_clickable((By.CLASS_NAME, "GDunJzzgFqQY_3"))
+                )
+                try:
+                    menu_button1.click()
+                except:
+                    menu_button.click()
+                time.sleep(1.5)
+                
+            # click on export/print/share button
             export_button = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//button[.//div[text()='Print, export, and share']]"))
+                EC.element_to_be_clickable((By.XPATH, "//button[.//div[contains(text(), 'Print, export, and share')]]"))
             )
             export_button.click()
-            time.sleep(1)
             
-            # click on export JSON using the link text
+            # Wait for the export dialog to fully appear
+            time.sleep(2)
+            
+            # Wait for and click on export JSON using the link text
             export_as_json_button = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//a[.//span[text()='Export as JSON']]"))
+                EC.presence_of_element_located((By.XPATH, "//a[.//span[contains(text(), 'Export as JSON')]]"))
             )
-            # Alternative using href attribute:
-            # export_as_json_button = self.wait.until(
-            #     EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href$='.json'][download]"))
-            # )
-            export_as_json_button.click()
+            # Wait a moment before clicking to ensure the element is truly interactive
             time.sleep(1)
+            export_as_json_button.click()
+            
+            # Wait for download to begin
+            time.sleep(2)
+            
+            # Wait for download to complete
+            time.sleep(2)
+            print("Downloading...")
+            
+            # move file from downloads folder to current directory
+            # os.rename(os.path.join(os.path.expanduser('~'), 'Downloads', 'export.json'), 'export.json')
             
         except Exception as e:
-            print(f"Failed to parse sprint room user cards: {str(e)}")
+            print(f"Failed to export view: {str(e)}")
+            self.driver.save_screenshot("export_error.png")
+            raise
+        
+    def verify_download(self):
+        """Verify the download is complete."""
+        try:
+            # check if .json file exists in downloads folder
+            if os.path.exists(os.path.join(os.path.expanduser('~'), 'Downloads', 'AKnpNx3h - Sprint Room.json')):
+                print("Download complete")
+            else:
+                print("Download failed")
+        except Exception as e:
+            print(f"Failed to verify download: {str(e)}")
             raise
 
     def __del__(self):
@@ -167,9 +188,14 @@ def main(member):
     scraper = TrelloScraper()
     
     try:
-        scraper.navigate_to_sprint_room()
-        scraper.get_sprint_room_user_cards()
+        scraper.get_sprint_room_user_cards(member)
+        time.sleep(2)  # Wait for filtered view to stabilize
         scraper.export_view_json()
+        scraper.verify_download()
+    except Exception as e:
+        print(f"Operation failed: {str(e)}")
+        scraper.driver.save_screenshot("error.png")
+        raise e
     finally:
         scraper.driver.quit()
 
