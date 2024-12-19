@@ -113,9 +113,25 @@ class TrelloScraper:
                 EC.element_to_be_clickable((By.CLASS_NAME, "WiVSCg76W3ENQE"))
             )
             cards_assigned_to_me_button.click()
-            time.sleep(.05)
+            time.sleep(1)
+             # Press filter button <div class="PqTwU_wwUxQy6s">Filters</div>
+            filter_button = self.wait.until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "PqTwU_wwUxQy6s"))
+            )
+            filter_button.click()
+            time.sleep(3)
         except Exception as e:
             print(f"Failed to get sprint room user cards: {str(e)}")
+            raise
+        
+    def parse_sprint_room_user_cards(self):
+        """Parse the sprint room user cards."""
+        try:
+            # get all cards
+            cards = self.driver.find_elements(By.CLASS_NAME, "PqTwU_wwUxQy6s")
+            print(cards)
+        except Exception as e:
+            print(f"Failed to parse sprint room user cards: {str(e)}")
             raise
 
     def __del__(self):
@@ -130,6 +146,7 @@ def main(member):
     try:
         scraper.navigate_to_sprint_room()
         scraper.get_sprint_room_user_cards()
+        scraper.parse_sprint_room_user_cards()
     finally:
         scraper.driver.quit()
 
