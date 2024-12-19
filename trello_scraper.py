@@ -118,51 +118,16 @@ class TrelloScraper:
     def export_view_json(self):
         """Export the view to a JSON file."""
         try:
-            # see if menu button is open
-            # menu_title = <h3 class="MK0fS4D9AGgvuD">Menu</h3>
-            menu_title = self.driver.find_element(By.CLASS_NAME, "MK0fS4D9AGgvuD")
-            if menu_title.is_displayed() == False:
-                # open menu (the three dots)
-                time.sleep(1)
-                menu_button = self.driver.find_element(By.CLASS_NAME, "GDunJzzgFqQY_3")
-                menu_button1 = self.wait.until(
-                    EC.element_to_be_clickable((By.CLASS_NAME, "GDunJzzgFqQY_3"))
-                )
-                try:
-                    menu_button1.click()
-                except:
-                    menu_button.click()
-                time.sleep(1.5)
-                
-            # click on export/print/share button
-            export_button = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//button[.//div[contains(text(), 'Print, export, and share')]]"))
-            )
-            export_button.click()
-            
-            # Wait for the export dialog to fully appear
+            # Directly navigate to JSON URL
+            self.driver.get("https://trello.com/b/AKnpNx3h.json")
             time.sleep(2)
             
-            # Wait for and click on export JSON using the link text
-            export_as_json_button = self.wait.until(
-                EC.presence_of_element_located((By.XPATH, "//a[.//span[contains(text(), 'Export as JSON')]]"))
-            )
-            # Wait a moment before clicking to ensure the element is truly interactive
-            time.sleep(1)
-            export_as_json_button.click()
-            
-            # Wait for download to begin
-            time.sleep(2)
-            
-            # Wait for download to complete
-            time.sleep(2)
-            print("Downloading...")
-            
-            # move file from downloads folder to current directory
-            # os.rename(os.path.join(os.path.expanduser('~'), 'Downloads', 'export.json'), 'export.json')
+            # The browser will automatically download the JSON file
+            print("Downloading JSON...")
+            time.sleep(2)  # Wait for download to complete
             
         except Exception as e:
-            print(f"Failed to export view: {str(e)}")
+            print(f"Failed to export JSON: {str(e)}")
             self.driver.save_screenshot("export_error.png")
             raise
         
