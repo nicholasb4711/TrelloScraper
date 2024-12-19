@@ -48,14 +48,14 @@ class TrelloScraper:
                 EC.presence_of_element_located((By.ID, "username"))
             )
             email_input.send_keys(os.getenv('TRELLO_EMAIL'))
-            time.sleep(1)
+            time.sleep(0.5)
             
             # Click the Atlassian continue button
             continue_button = self.wait.until(
                 EC.element_to_be_clickable((By.ID, "login-submit"))
             )
             continue_button.click()
-            time.sleep(1)
+            time.sleep(0.5)
             
             # Wait for password field and submit
             password_input = self.wait.until(
@@ -84,13 +84,39 @@ class TrelloScraper:
             
         except Exception as e:
             print(f"Login failed: {str(e)}")
-            self.driver.save_screenshot("login_error.png")
             raise
         
     def navigate_to_sprint_room(self):
         """Navigate to the member's boards page."""
-        self.driver.get(f"https://trello.com/b/AKnpNx3h/sprint-room")
-        time.sleep(2)
+        try:
+            self.driver.get(f"https://trello.com/b/AKnpNx3h/sprint-room")
+            time.sleep(1)
+            # look for <h1 class="HKTtBLwDyErB_o" data-testid="board-name-display">Sprint Room</h1>
+            self.wait.until(
+                EC.presence_of_element_located((By.CLASS_NAME, "HKTtBLwDyErB_o"))
+            )
+        except Exception as e:
+            print(f"Failed to navigate to sprint room: {str(e)}")
+            raise
+        
+    def get_sprint_room_user_cards(self):
+        """Get all cards for the user in the sprint room."""
+        try:
+            # Press filter button <div class="PqTwU_wwUxQy6s">Filters</div>
+            filter_button = self.wait.until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "PqTwU_wwUxQy6s"))
+            )
+            filter_button.click()
+            time.sleep(.05)
+            # Press cards assigned to me <div class="WiVSCg76W3ENQE" title="Cards assigned to me">Cards assigned to me</div>
+            cards_assigned_to_me_button = self.wait.until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "WiVSCg76W3ENQE"))
+            )
+            cards_assigned_to_me_button.click()
+            time.sleep(.05)
+        except Exception as e:
+            print(f"Failed to get sprint room user cards: {str(e)}")
+            raise
 
     def __del__(self):
         """Clean up browser instance."""
@@ -103,7 +129,7 @@ def main(member):
     
     try:
         scraper.navigate_to_sprint_room()
-        time.sleep(3)
+        scraper.get_sprint_room_user_cards()
     finally:
         scraper.driver.quit()
 
