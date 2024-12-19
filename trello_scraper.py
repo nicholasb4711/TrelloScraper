@@ -154,8 +154,10 @@ class TrelloScraper:
                 json_str = content.split('<pre>')[1].split('</pre>')[0] if '<pre>' in content else content
                 data = json.loads(json_str)
                 
-                # Get member ID from the data
+                # Get member ID and create checklist lookup
                 member_id = None
+                checklists = {cl['id']: cl for cl in data.get('checklists', [])}
+                
                 for member in data.get('members', []):
                     if member.get('username') == os.getenv('TRELLO_USERNAME'):
                         member_id = member.get('id')
@@ -165,26 +167,40 @@ class TrelloScraper:
                     print("Member not found in board")
                     return
                 
-                # Extract cards created by the member
+                # Extract cards with full details
                 cards_data = []
                 for card in data.get('cards', []):
                     if card.get('idMembers') and member_id in card.get('idMembers'):
+                        # Get checklists for this card
+                        card_checklists = []
+                        for checklist_id in card.get('idChecklists', []):
+                            if checklist_id in checklists:
+                                checklist = checklists[checklist_id]
+                                items = [
+                                    {
+                                        'name': item['name'],
+                                        'complete': item['state'] == 'complete'
+                                    }
+                                    for item in checklist.get('checkItems', [])
+                                ]
+                                card_checklists.append({
+                                    'name': checklist['name'],
+                                    'items': items
+                                })
+                        
                         card_info = {
                             'name': card.get('name'),
                             'desc': card.get('desc'),
                             'due': card.get('due'),
                             'labels': [label.get('name') for label in card.get('labels', [])],
-                            'url': card.get('url')
+                            'url': card.get('url'),
+                            'checklists': card_checklists
                         }
                         cards_data.append(card_info)
                 
-                # Convert to DataFrame and display summary
                 df = pd.DataFrame(cards_data)
                 print(f"\nFound {len(df)} cards assigned to you")
-                
-                # List cards in readable format
                 self.list_cards(df)
-                
                 return df
                 
         except Exception as e:
@@ -192,26 +208,36 @@ class TrelloScraper:
             raise
 
     def list_cards(self, df):
-        """List all cards in a readable format."""
+        """List all cards in a readable format and save to file."""
         try:
             if df is None or df.empty:
                 print("No cards found")
                 return
             
-            print("\n=== Your Cards ===")
-            for idx, card in df.iterrows():
-                print(f"\n{idx + 1}. {card['name']}")
-                if card['due']:
-                    print(f"   Due: {card['due']}")
-                if card['desc']:
-                    print(f"   Description: {card['desc'][:100]}...")  # First 100 chars
-                if card['labels']:
-                    print(f"   Labels: {', '.join(card['labels'])}")
-                print(f"   URL: {card['url']}")
-                print("   " + "-"*50)
+            with open('card_list.txt', 'w') as f:
+                f.write("=== Your Cards ===\n")
+                for idx, card in df.iterrows():
+                    f.write(f"\n{idx + 1}. {card['name']}\n")
+                    if card['due']:
+                        f.write(f"   Due: {card['due']}\n")
+                    if card['desc']:
+                        f.write(f"   Description:\n{card['desc']}\n")  # Full description
+                    if card['labels']:
+                        f.write(f"   Labels: {', '.join(card['labels'])}\n")
+                    if card['checklists']:
+                        f.write("\n   Checklists:\n")
+                        for checklist in card['checklists']:
+                            f.write(f"   - {checklist['name']}:\n")
+                            for item in checklist['items']:
+                                status = "☒" if item['complete'] else "☐"
+                                f.write(f"     {status} {item['name']}\n")
+                    f.write(f"   URL: {card['url']}\n")
+                    f.write("   " + "-"*50 + "\n")
+            
+            print(f"Card list saved to card_list.txt")
             
         except Exception as e:
-            print(f"Failed to list cards: {str(e)}")
+            print(f"Failed to save card list: {str(e)}")
             raise
 
     def __del__(self):
