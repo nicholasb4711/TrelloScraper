@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from dotenv import load_dotenv
-
+from model import get_resume_points
 class TrelloScraper:
     def __init__(self):
         load_dotenv()
@@ -22,19 +22,24 @@ class TrelloScraper:
 
     def _setup_driver(self):
         """Configure and return Chrome driver with optimized settings."""
+        print("Setting up driver")
         options = webdriver.ChromeOptions()
-        options.add_argument('--start-maximized')
+        # options.add_argument('--headless=new')
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-browser-side-navigation')
+        # options.add_argument('--window-size=1920,1080')
+        options.add_argument('--start-maximized')
         options.page_load_strategy = 'eager'
+        print("Driver setup complete")
         return webdriver.Chrome(options=options)
 
     def login(self):
         """Login to Trello with credentials from .env file."""
         try:
+            print("Logging in")
             self.driver.get("https://trello.com/login")
             
             # Enter email
@@ -43,7 +48,7 @@ class TrelloScraper:
             
             # Submit email
             self.wait.until(EC.element_to_be_clickable((By.ID, "login-submit"))).click()
-            time.sleep(1)
+            time.sleep(2)
             
             # Enter password
             password_input = self.wait.until(EC.presence_of_element_located((By.ID, "password")))
@@ -54,20 +59,22 @@ class TrelloScraper:
             
             # Verify login success
             self.wait.until(EC.presence_of_element_located((By.CLASS_NAME, "all-boards")))
-            
+            print("Login successful")
         except Exception as e:
             print(f"Login failed: {str(e)}")
             raise
 
     def get_sprint_room_user_cards(self, member):
         """Get filtered view of user's cards."""
+        print("Getting user's cards")
         url = f"https://trello.com/b/AKnpNx3h/sprint-room?filter=member:{member}"
         self.driver.get(url)
         time.sleep(3)  # Wait for filter to apply
-
+        print("User's cards fetched")
     def export_view_json(self):
         """Export board data as JSON."""
         try:
+            print("Exporting JSON")
             self.driver.get("https://trello.com/b/AKnpNx3h.json")
             json_content = self.driver.page_source
             
@@ -83,6 +90,7 @@ class TrelloScraper:
     def analyze_json(self):
         """Process JSON data and extract card information."""
         try:
+            print("Analyzing JSON")
             # Read and parse JSON
             with open("sprint-room.json", "r") as f:
                 content = f.read()
@@ -120,6 +128,7 @@ class TrelloScraper:
 
     def _process_cards(self, data, member_id):
         """Extract card data including checklists."""
+        print("Processing cards")
         checklists = {cl['id']: cl for cl in data.get('checklists', [])}
         cards_data = []
         
@@ -135,10 +144,12 @@ class TrelloScraper:
                 }
                 cards_data.append(card_info)
         
+        print("Cards processed")
         return cards_data
 
     def _get_card_checklists(self, card, checklists):
         """Process checklists for a card."""
+        
         card_checklists = []
         for checklist_id in card.get('idChecklists', []):
             if checklist_id in checklists:
@@ -152,6 +163,7 @@ class TrelloScraper:
 
     def _save_card_list(self, df):
         """Save formatted card list to file."""
+        print("Saving card list")
         if df is None or df.empty:
             print("No cards found")
             return
@@ -187,41 +199,53 @@ class TrelloScraper:
                 file.write(f"     {status} {item['name']}\n")
 
     def generate_resume_points(self, df):
-        """Generate resume bullet points from card data."""
+        """Generate resume bullet points using OpenAI."""
         try:
+            print("Generating resume points")
             if df is None or df.empty:
                 print("No cards found to analyze")
                 return
 
-            # Group cards by label for better organization
-            label_groups = {}
+            # Prepare data for GPT
+            cards_by_label = {}
             for _, card in df.iterrows():
                 for label in card['labels']:
-                    if label not in label_groups:
-                        label_groups[label] = []
-                    label_groups[label].append({
+                    if label not in cards_by_label:
+                        cards_by_label[label] = []
+                    cards_by_label[label].append({
                         'name': card['name'],
-                        'desc': card['desc'],
-                        'checklists': card['checklists']
+                        'description': card['desc'],
+                        'completed_tasks': [
+                            item['name'] 
+                            for checklist in card['checklists'] 
+                            for item in checklist['items'] 
+                            if item['complete']
+                        ]
                     })
 
-            # Write resume points to file
+            # Create prompt
+            prompt = """Based on the following work history from Trello cards, create professional resume bullet points. 
+            Focus on impact, technical skills, and quantifiable achievements. Group by category and make it concise yet impressive.
+            
+            Here are the cards organized by category:\n\n"""
+            
+            for label, cards in cards_by_label.items():
+                prompt += f"\n{label}:\n"
+                for card in cards:
+                    prompt += f"\nProject: {card['name']}"
+                    if card['description']:
+                        prompt += f"\nDescription: {card['description']}"
+                    if card['completed_tasks']:
+                        prompt += "\nCompleted Tasks:\n- " + "\n- ".join(card['completed_tasks'])
+                    prompt += "\n"
+
+            # Get response from OpenAI
+            response = get_resume_points(prompt)
+
+            # Save response
             with open('resume_points.txt', 'w') as f:
-                f.write("=== Resume Points by Category ===\n\n")
-                
-                for label, cards in label_groups.items():
-                    f.write(f"\n{label.upper()}\n")
-                    f.write("-" * 50 + "\n")
-                    
-                    # Combine similar cards and generate summary points
-                    summary = (
-                        f"• Led development of {len(cards)} projects including:\n"
-                        + "\n".join(f"  - {card['name']}" for card in cards)
-                        + "\n\n"
-                        + "Key Achievements:\n"
-                        + self._generate_achievements(cards)
-                    )
-                    f.write(summary + "\n")
+                f.write("=== Resume Points Generated by GPT ===\n\n")
+                f.write(response)
 
             print("Resume points saved to resume_points.txt")
             
@@ -229,39 +253,27 @@ class TrelloScraper:
             print(f"Failed to generate resume points: {str(e)}")
             raise
 
-    def _generate_achievements(self, cards):
-        """Generate achievement bullet points from cards."""
-        achievements = []
-        
-        for card in cards:
-            # Extract completed checklist items as accomplishments
-            for checklist in card.get('checklists', []):
-                completed_items = [
-                    item['name'] for item in checklist['items'] 
-                    if item['complete']
-                ]
-                if completed_items:
-                    achievements.extend(completed_items)
-            
-            # Include card description if it provides value
-            if card['desc'] and len(card['desc']) > 10:  # Arbitrary minimum length
-                achievements.append(card['desc'].split('\n')[0])  # First line only
-        
-        # Format achievements as bullet points
-        return "\n".join(f"• {achievement}" for achievement in achievements)
-
     def __del__(self):
         """Clean up resources."""
         self.driver.quit()
 
 @click.command()
 @click.option('--member', required=True, help='Trello username to scrape')
-def main(member):
+@click.option('--generate-resume', is_flag=True, help='Generate resume points using GPT')
+def main(member, generate_resume):
     scraper = TrelloScraper()
     try:
         scraper.get_sprint_room_user_cards(member)
         scraper.export_view_json()
-        scraper.analyze_json()
+        df = scraper.analyze_json()
+        
+        if generate_resume:
+            try:
+                scraper.generate_resume_points(df)
+            except Exception as e:
+                print(f"\nFailed to generate resume points: {str(e)}")
+                print("Card list was still generated successfully.")
+                
     except Exception as e:
         print(f"Operation failed: {str(e)}")
         raise e
