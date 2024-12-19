@@ -181,14 +181,37 @@ class TrelloScraper:
                 # Convert to DataFrame and display summary
                 df = pd.DataFrame(cards_data)
                 print(f"\nFound {len(df)} cards assigned to you")
-                if not df.empty:
-                    print("\nRecent cards:")
-                    print(df[['name', 'due', 'labels']].head())
+                
+                # List cards in readable format
+                self.list_cards(df)
                 
                 return df
                 
         except Exception as e:
             print(f"Failed to analyze JSON: {str(e)}")
+            raise
+
+    def list_cards(self, df):
+        """List all cards in a readable format."""
+        try:
+            if df is None or df.empty:
+                print("No cards found")
+                return
+            
+            print("\n=== Your Cards ===")
+            for idx, card in df.iterrows():
+                print(f"\n{idx + 1}. {card['name']}")
+                if card['due']:
+                    print(f"   Due: {card['due']}")
+                if card['desc']:
+                    print(f"   Description: {card['desc'][:100]}...")  # First 100 chars
+                if card['labels']:
+                    print(f"   Labels: {', '.join(card['labels'])}")
+                print(f"   URL: {card['url']}")
+                print("   " + "-"*50)
+            
+        except Exception as e:
+            print(f"Failed to list cards: {str(e)}")
             raise
 
     def __del__(self):
