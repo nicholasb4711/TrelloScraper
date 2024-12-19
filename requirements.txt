@@ -1,0 +1,5 @@
+selenium==4.11.2
+python-dotenv==0.19.2
+pandas==1.4.2
+click==8.0.4
+webdriver_manager==4.0.0 
