@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 from xml.etree.ElementTree import Element
 import pandas as pd
@@ -118,29 +119,76 @@ class TrelloScraper:
     def export_view_json(self):
         """Export the view to a JSON file."""
         try:
-            # Directly navigate to JSON URL
+            # Get the JSON content
             self.driver.get("https://trello.com/b/AKnpNx3h.json")
-            time.sleep(2)
+            json_content = self.driver.page_source
             
-            # The browser will automatically download the JSON file
-            print("Downloading JSON...")
-            time.sleep(2)  # Wait for download to complete
+            # Save to file in project directory
+            filename = "sprint-room.json"
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(json_content)
+            
+            print(f"JSON saved to {filename}")
             
         except Exception as e:
             print(f"Failed to export JSON: {str(e)}")
-            self.driver.save_screenshot("export_error.png")
             raise
         
     def verify_download(self):
         """Verify the download is complete."""
         try:
-            # check if .json file exists in downloads folder
-            if os.path.exists(os.path.join(os.path.expanduser('~'), 'Downloads', 'AKnpNx3h - Sprint Room.json')):
-                print("Download complete")
-            else:
-                print("Download failed")
+            if os.path.exists("sprint-room.json"):
+                print("JSON file saved successfully")
+                return True
+            print("JSON file not found")
+            return False
         except Exception as e:
-            print(f"Failed to verify download: {str(e)}")
+            print(f"Failed to verify file: {str(e)}")
+            raise
+        
+    def analyze_json(self):
+        """Analyze the JSON file."""
+        try:
+            with open("sprint-room.json", "r") as f:
+                content = f.read()
+                json_str = content.split('<pre>')[1].split('</pre>')[0] if '<pre>' in content else content
+                data = json.loads(json_str)
+                
+                # Get member ID from the data
+                member_id = None
+                for member in data.get('members', []):
+                    if member.get('username') == os.getenv('TRELLO_USERNAME'):
+                        member_id = member.get('id')
+                        break
+                
+                if not member_id:
+                    print("Member not found in board")
+                    return
+                
+                # Extract cards created by the member
+                cards_data = []
+                for card in data.get('cards', []):
+                    if card.get('idMembers') and member_id in card.get('idMembers'):
+                        card_info = {
+                            'name': card.get('name'),
+                            'desc': card.get('desc'),
+                            'due': card.get('due'),
+                            'labels': [label.get('name') for label in card.get('labels', [])],
+                            'url': card.get('url')
+                        }
+                        cards_data.append(card_info)
+                
+                # Convert to DataFrame and display summary
+                df = pd.DataFrame(cards_data)
+                print(f"\nFound {len(df)} cards assigned to you")
+                if not df.empty:
+                    print("\nRecent cards:")
+                    print(df[['name', 'due', 'labels']].head())
+                
+                return df
+                
+        except Exception as e:
+            print(f"Failed to analyze JSON: {str(e)}")
             raise
 
     def __del__(self):
@@ -157,12 +205,12 @@ def main(member):
         time.sleep(2)  # Wait for filtered view to stabilize
         scraper.export_view_json()
         scraper.verify_download()
+        scraper.analyze_json()
     except Exception as e:
         print(f"Operation failed: {str(e)}")
-        scraper.driver.save_screenshot("error.png")
         raise e
     finally:
         scraper.driver.quit()
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
     main() 
