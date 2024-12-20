@@ -9,13 +9,17 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from dotenv import load_dotenv
 from model import get_resume_points
+
 class TrelloScraper:
-    def __init__(self):
+    def __init__(self, board_name):
         load_dotenv()
+        self.board_name = board_name
+        self.board_id = None
         self.driver = self._setup_driver()
         self.wait = WebDriverWait(self.driver, 10)
         try:
             self.login()
+            self.find_board_id()
         except Exception as e:
             self.driver.quit()
             raise e
@@ -64,21 +68,23 @@ class TrelloScraper:
             print(f"Login failed: {str(e)}")
             raise
 
-    def get_sprint_room_user_cards(self, member):
+    def get_board_user_cards(self, member):
         """Get filtered view of user's cards."""
         print("Getting user's cards")
-        url = f"https://trello.com/b/AKnpNx3h/sprint-room?filter=member:{member}"
+        url = f"https://trello.com/b/{self.board_id}?filter=member:{member}"
         self.driver.get(url)
         time.sleep(3)  # Wait for filter to apply
         print("User's cards fetched")
+
     def export_view_json(self):
         """Export board data as JSON."""
         try:
             print("Exporting JSON")
-            self.driver.get("https://trello.com/b/AKnpNx3h.json")
+            self.driver.get(f"https://trello.com/b/{self.board_id}.json")
             json_content = self.driver.page_source
             
-            with open("sprint-room.json", 'w', encoding='utf-8') as f:
+            filename = f"board-{self.board_id}.json"
+            with open(filename, 'w', encoding='utf-8') as f:
                 f.write(json_content)
             
             print("JSON exported successfully")
@@ -91,8 +97,8 @@ class TrelloScraper:
         """Process JSON data and extract card information."""
         try:
             print("Analyzing JSON")
-            # Read and parse JSON
-            with open("sprint-room.json", "r") as f:
+            filename = f"board-{self.board_name}.json"
+            with open(filename, "r") as f:
                 content = f.read()
                 json_str = content.split('<pre>')[1].split('</pre>')[0] if '<pre>' in content else content
                 data = json.loads(json_str)
@@ -108,9 +114,8 @@ class TrelloScraper:
             
             print(f"\nFound {len(df)} cards assigned to you")
             
-            # Generate both card list and resume points
+            # Only save card list, resume generation is handled separately
             self._save_card_list(df)
-            self.generate_resume_points(df)
             
             return df
             
@@ -257,13 +262,40 @@ class TrelloScraper:
         """Clean up resources."""
         self.driver.quit()
 
+    def find_board_id(self):
+        """Find board ID from board name."""
+        try:
+            print(f"Finding board: {self.board_name}")
+            self.driver.get("https://trello.com/u/me/boards")
+            time.sleep(2)
+            
+            # Find all board links
+            boards = self.wait.until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href*='/b/']"))
+            )
+            
+            # Find matching board
+            for board in boards:
+                if self.board_name.lower() in board.text.lower():
+                    board_url = board.get_attribute('href')
+                    self.board_id = board_url.split('/b/')[1].split('/')[0]
+                    print(f"Found board ID: {self.board_id}")
+                    return
+                    
+            raise Exception(f"Board '{self.board_name}' not found")
+            
+        except Exception as e:
+            print(f"Failed to find board: {str(e)}")
+            raise
+
 @click.command()
 @click.option('--member', required=True, help='Trello username to scrape')
+@click.option('--board', required=True, help='Name of the Trello board')
 @click.option('--generate-resume', is_flag=True, help='Generate resume points using GPT')
-def main(member, generate_resume):
-    scraper = TrelloScraper()
+def main(member, board, generate_resume):
+    scraper = TrelloScraper(board)
     try:
-        scraper.get_sprint_room_user_cards(member)
+        scraper.get_board_user_cards(member)
         scraper.export_view_json()
         df = scraper.analyze_json()
         
