@@ -1,10 +1,23 @@
 # Trello Scraper
 
-A Python-based tool to scrape Trello boards and analyze card data. This tool allows you to:
-- Login to Trello
-- Get all cards for a specific member of a board
-- Export card data to a readable format
-- Generate resume-friendly bullet points using GPT (optional)
+A Python automation tool that extracts and analyzes your Trello cards to generate professional documentation. This tool is particularly useful for:
+- Documenting your work history from Trello boards
+- Generating detailed reports of completed tasks
+- Creating resume-friendly bullet points using AI
+- Tracking project progress and achievements
+
+## Features
+
+- **Automated Login**: Securely connects to your Trello account
+- **Board Selection**: Finds and accesses boards by name
+- **Card Extraction**: Pulls all cards assigned to you, including:
+  - Card descriptions
+  - Completed checklist items
+  - Labels and categories
+  - Due dates
+  - URLs for reference
+- **Smart Formatting**: Organizes cards into a readable format
+- **AI Resume Generation**: Optional GPT-powered feature that converts your Trello cards into professional resume bullet points
 
 ## Requirements
 
@@ -54,23 +67,34 @@ OPENAI_API_KEY=<your_openai_api_key>  # Optional, for resume generation
 
 ### Basic Usage (Card List Only)
 ```bash
-python trello_scraper.py --member <trello_username>
+python trello_scraper.py --member <trello_username> --board "My Board Name"
 ```
 
 ### Generate Resume Points
 ```bash
-python trello_scraper.py --member <trello_username> --generate-resume
+python trello_scraper.py --member <trello_username> --board "My Board Name" --generate-resume
 ```
+
+Note: The board name should match (or be contained in) the name of your Trello board. The search is case-insensitive.
 
 ## Output Files
 
 - `card_list.txt`: Detailed list of all cards with descriptions and checklists
 - `resume_points.txt`: AI-generated resume bullet points (if --generate-resume is used)
+- `board-{name}.json`: Raw JSON data from the Trello board
 
 ## Notes
 
-- The script can run in both headless and visible browser modes
+- The script supports both headless and visible browser modes (configurable in code)
 - Resume generation requires an OpenAI API key and sufficient API quota
 - All sensitive data should be stored in the .env file
+- The tool respects Trello's rate limits and uses efficient data extraction methods
+
+## Best Practices
+
+1. Keep your .env file secure and never commit it to version control
+2. Use descriptive board names for easier access
+3. Ensure your Trello cards have good descriptions and completed checklists for better resume generation
+4. Review and customize the generated resume points for accuracy
 
 

@@ -82,8 +82,8 @@ class TrelloScraper:
             print("Exporting JSON")
             self.driver.get(f"https://trello.com/b/{self.board_id}.json")
             json_content = self.driver.page_source
-            
-            filename = f"board-{self.board_id}.json"
+            board_filename = self.board_name.replace(" ", "-")
+            filename = f"board-{board_filename}.json"
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(json_content)
             
@@ -97,7 +97,8 @@ class TrelloScraper:
         """Process JSON data and extract card information."""
         try:
             print("Analyzing JSON")
-            filename = f"board-{self.board_name}.json"
+            board_filename = self.board_name.replace(" ", "-")
+            filename = f"board-{board_filename}.json"
             with open(filename, "r") as f:
                 content = f.read()
                 json_str = content.split('<pre>')[1].split('</pre>')[0] if '<pre>' in content else content

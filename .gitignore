@@ -2,4 +2,4 @@
 venv/
 card_list.txt
 resume_points.txt
-sprint-room.json
+board-*.json
