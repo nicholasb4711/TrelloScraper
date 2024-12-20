@@ -97,4 +97,14 @@ Note: The board name should match (or be contained in) the name of your Trello b
 3. Ensure your Trello cards have good descriptions and completed checklists for better resume generation
 4. Review and customize the generated resume points for accuracy
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
+
+## License
+
+[MIT](LICENSE)
+
 
